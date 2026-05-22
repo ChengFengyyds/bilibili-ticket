@@ -13,7 +13,7 @@ class Config:
     # 票务配置 - VCTCN上海站
     VCTCN_SHANGHAI = {
         "name": "VCTCN 2025 上海站",
-        "event_id": "vctcn_2025_shanghai",  # 实际使用时需要替换为真实活动ID
+        "event_id": "1001074",  # 测试活动ID
         "description": "Valorant冠军巡回赛中国联赛2025上海站",
         "date": "2025年9月",
         "venue": "上海"

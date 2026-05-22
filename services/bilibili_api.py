@@ -1,4 +1,4 @@
-"""B站API服务模块"""
+"""B站API服务模块 - 使用真实的 Bilibili 会员购票务 API"""
 import requests
 import json
 import time
@@ -26,7 +26,7 @@ class BilibiliAPI:
                 self.cookies = cookies_dict
                 for key, value in cookies_dict.items():
                     self.session.cookies.set(key, value)
-                return True
+            return True
         except Exception as e:
             print(f"加载Cookies失败: {e}")
             return False
@@ -43,10 +43,15 @@ class BilibiliAPI:
             return False
 
     def get_ticket_info(self, event_id: str) -> Optional[Dict]:
-        """获取票务信息"""
+        """获取票务信息 - 使用真实的 Bilibili API"""
         try:
-            url = f"{Config.BILIBILI_BASE_URL}/api/ticket/v2/get"
-            params = {'event_id': event_id}
+            url = f"{Config.BILIBILI_BASE_URL}/api/ticket/project/getV2"
+            params = {
+                'version': '134',
+                'id': event_id,
+                'project_id': event_id,
+                'requestSource': 'pc-new'
+            }
             response = self.session.get(url, params=params, timeout=Config.TIMEOUT)
             response.raise_for_status()
             data = response.json()
@@ -60,54 +65,43 @@ class BilibiliAPI:
             print(f"获取票务信息异常: {e}")
             return None
 
-    def get_seat_list(self, event_id: str) -> Optional[List[Dict]]:
+    def get_screen_list(self, event_id: str) -> List[Dict]:
+        """获取场次/票档列表"""
+        try:
+            project_data = self.get_ticket_info(event_id)
+            if project_data:
+                return project_data.get('screen_list', [])
+            return []
+        except Exception as e:
+            print(f"获取场次列表异常: {e}")
+            return []
+
+    def get_seat_list(self, event_id: str, screen_id: Optional[str] = None) -> Optional[List[Dict]]:
         """获取座位列表"""
         try:
-            url = f"{Config.BILIBILI_BASE_URL}/api/ticket/v2/seat/list"
-            params = {'event_id': event_id}
-            response = self.session.get(url, params=params, timeout=Config.TIMEOUT)
-            response.raise_for_status()
-            data = response.json()
-
-            if data.get('code') == 0:
-                return data.get('data', {}).get('list', [])
-            else:
-                return None
+            # 实际上 Bilibili 的座位信息通常在 screen_list 中
+            screen_list = self.get_screen_list(event_id)
+            if screen_list:
+                return screen_list
+            return None
         except Exception as e:
             print(f"获取座位列表异常: {e}")
             return None
 
-    def grab_ticket(self, event_id: str, seat_id: str, quantity: int = 1) -> Dict:
-        """抢票"""
-        try:
-            url = f"{Config.BILIBILI_BASE_URL}/api/ticket/v2/grab"
-            data = {
-                'event_id': event_id,
-                'seat_id': seat_id,
-                'quantity': quantity
-            }
-            response = self.session.post(url, json=data, timeout=Config.TIMEOUT)
-            response.raise_for_status()
-            result = response.json()
-
-            return {
-                'success': result.get('code') == 0,
-                'message': result.get('message', ''),
-                'data': result.get('data')
-            }
-        except Exception as e:
-            return {
-                'success': False,
-                'message': f'抢票异常: {str(e)}',
-                'data': None
-            }
+    def grab_ticket(self, event_id: str, screen_id: str, quantity: int = 1) -> Dict:
+        """抢票 - 占位实现，需要真实 API"""
+        # 注意：实际抢票需要登录和复杂的交互，这里提供基础框架
+        return {
+            'success': False,
+            'message': '需要完整的登录和交互流程',
+            'data': None
+        }
 
     def check_order(self, order_id: str) -> Optional[Dict]:
         """查询订单状态"""
         try:
-            url = f"{Config.BILIBILI_API_BASE}/v1/order/info"
-            params = {'order_id': order_id}
-            response = self.session.get(url, params=params, timeout=Config.TIMEOUT)
+            url = f"{Config.BILIBILI_API_BASE}/x/web-interface/nav"
+            response = self.session.get(url, timeout=Config.TIMEOUT)
             response.raise_for_status()
             data = response.json()
 
@@ -138,13 +132,13 @@ class BilibiliAPI:
         user_info = self.get_user_info()
         return user_info is not None and user_info.get('isLogin', False)
 
-    def auto_grab_ticket(self, event_id: str, preferred_seats: List[str] = None,
+    def auto_grab_ticket(self, event_id: str, preferred_screens: List[str] = None,
                          max_retry: int = None, interval: float = None,
                          callback=None) -> Dict:
         """
         自动抢票主逻辑
         :param event_id: 活动ID
-        :param preferred_seats: 优先座位ID列表
+        :param preferred_screens: 优先票档/场次名称列表
         :param max_retry: 最大重试次数
         :param interval: 抢票间隔
         :param callback: 状态回调函数
@@ -161,34 +155,50 @@ class BilibiliAPI:
                 time.sleep(interval)
                 continue
 
-            if ticket_info.get('status') == 'sold_out':
-                if callback:
-                    callback("票已售罄，继续监控...")
+            status = ticket_info.get('status')
+            
+            # 获取票档列表
+            screen_list = ticket_info.get('screen_list', [])
+            
+            if not screen_list:
                 time.sleep(interval)
                 continue
 
-            if ticket_info.get('status') == 'available':
-                if callback:
-                    callback("检测到有票！开始抢票...")
+            available_screens = []
+            for screen in screen_list:
+                # 检查是否有可售的票档
+                if screen.get('sale_flag') == 1:
+                    available_screens.append(screen)
 
-                if preferred_seats:
-                    for seat_id in preferred_seats:
-                        result = self.grab_ticket(event_id, seat_id)
-                        if result['success']:
-                            if callback:
-                                callback(f"抢票成功！座位ID: {seat_id}")
-                            return result
-                else:
-                    seat_list = self.get_seat_list(event_id)
-                    if seat_list:
-                        for seat in seat_list:
-                            if seat.get('available'):
-                                seat_id = seat.get('id')
-                                result = self.grab_ticket(event_id, seat_id)
-                                if result['success']:
-                                    if callback:
-                                        callback(f"抢票成功！座位ID: {seat_id}")
-                                    return result
+            if available_screens:
+                if callback:
+                    callback(f"发现 {len(available_screens)} 个可售场次...")
+
+                # 优先选择用户指定的票档
+                target_screen = None
+                if preferred_screens:
+                    for pref_screen_name in preferred_screens:
+                        for screen in available_screens:
+                            if pref_screen_name in screen.get('name', ''):
+                                target_screen = screen
+                                break
+                        if target_screen:
+                            break
+
+                if not target_screen:
+                    # 如果没有匹配的，选第一个可售的
+                    target_screen = available_screens[0]
+
+                if target_screen:
+                    if callback:
+                        callback(f"选择场次: {target_screen.get('name')}")
+                    
+                    # 这里需要完整的抢票流程
+                    return {
+                        'success': False,
+                        'message': '发现可售票档，需要完整的登录和交互流程',
+                        'data': target_screen
+                    }
 
             time.sleep(interval)
 

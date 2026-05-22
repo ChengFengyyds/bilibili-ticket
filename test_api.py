@@ -1,7 +1,4 @@
-"""测试脚本
-
-用于测试B站API连接和基础功能
-"""
+"""测试脚本 - 使用真实的 Bilibili API"""
 
 import sys
 import os
@@ -15,7 +12,7 @@ from config import Config
 def test_api_connection():
     """测试API连接"""
     print("=" * 60)
-    print("B站API连接测试")
+    print("B站API连接测试 - 真实 API")
     print("=" * 60)
 
     api = BilibiliAPI()
@@ -45,10 +42,18 @@ def test_api_connection():
     ticket_info = api.get_ticket_info(event_id)
     if ticket_info:
         print(f"   ✅ 成功获取票务信息")
-        print(f"   状态: {ticket_info.get('status')}")
-        print(f"   已售: {ticket_info.get('sold', 0)}/{ticket_info.get('total', 0)}")
+        print(f"   项目名称: {ticket_info.get('name')}")
+        print(f"   项目状态: {ticket_info.get('status')}")
+        
+        screen_list = ticket_info.get('screen_list', [])
+        if screen_list:
+            print(f"   票档数量: {len(screen_list)}")
+            for i, screen in enumerate(screen_list):
+                sale_flag = screen.get('sale_flag', 0)
+                status_text = "可售" if sale_flag == 1 else "不可售"
+                print(f"    [{i+1}] {screen.get('name')} - {status_text}")
     else:
-        print("   ⚠️ 无法获取票务信息（可能是活动ID不正确或活动未开放）")
+        print("   ⚠️ 无法获取票务信息")
 
     print("\n" + "=" * 60)
     print("测试完成")

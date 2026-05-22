@@ -1,0 +1,206 @@
+B站抢票工具 - 项目结构
+=====================
+
+项目目录: /workspace/bilibili-ticket/
+
+📁 bilibili-ticket/          # 主项目目录
+│
+├── 📄 main.py               # 应用程序入口点
+│
+├── 📄 config.py             # 全局配置文件
+│   ├── APP_NAME            # 应用名称
+│   ├── BILIBILI_BASE_URL   # B站API基础URL
+│   ├── VCTCN_SHANGHAI      # VCTCN上海站配置
+│   ├── GRAB_INTERVAL       # 抢票轮询间隔
+│   ├── MONITOR_INTERVAL    # 监控轮询间隔
+│   ├── MAX_RETRY           # 最大重试次数
+│   └── DATA_DIR            # 用户数据目录
+│
+├── 📄 requirements.txt      # Python依赖列表
+│
+├── 📄 使用说明.txt           # 详细使用文档
+│
+├── 📄 test_api.py          # API连接测试脚本
+│
+├── 📄 get_cookie.py        # Cookie自动获取工具
+│
+├── 📁 core/                # 核心业务逻辑模块
+│   ├── __init__.py
+│   └── auto_grabber.py     # 自动抢票核心类
+│       ├── start()         # 启动自动抢票
+│       ├── stop()          # 停止抢票
+│       ├── grab_once()     # 单次抢票
+│       └── _handle_ticket_available()  # 有票处理
+│
+├── 📁 services/            # 服务层模块
+│   ├── __init__.py
+│   ├── bilibili_api.py     # B站API交互
+│   │   ├── load_cookies()  # 加载Cookies
+│   │   ├── save_cookies()  # 保存Cookies
+│   │   ├── get_ticket_info()    # 获取票务信息
+│   │   ├── get_seat_list()      # 获取座位列表
+│   │   ├── grab_ticket()        # 抢票
+│   │   ├── check_order()        # 查询订单
+│   │   ├── get_user_info()      # 获取用户信息
+│   │   ├── is_logged_in()       # 检查登录状态
+│   │   └── auto_grab_ticket()   # 自动抢票逻辑
+│   │
+│   ├── ticket_monitor.py   # 票务监控服务
+│   │   ├── start_monitor()     # 开始监控
+│   │   ├── stop_monitor()      # 停止监控
+│   │   ├── get_current_status() # 获取当前状态
+│   │   └── _format_status()     # 格式化状态
+│   │
+│   └── cookie_manager.py   # Cookie管理
+│       ├── load()          # 加载Cookie
+│       ├── save()          # 保存Cookie
+│       ├── update()         # 更新Cookie
+│       ├── clear()          # 清除Cookie
+│       └── is_valid()       # 验证Cookie
+│
+├── 📁 ui/                  # 用户界面模块
+│   ├── __init__.py
+│   └── main_window.py      # 主窗口
+│       ├── init_ui()       # 初始化UI
+│       ├── create_header()        # 创建标题
+│       ├── create_login_section() # 创建登录区域
+│       ├── create_event_section() # 创建活动区域
+│       ├── create_control_section() # 创建控制区域
+│       ├── create_log_section()   # 创建日志区域
+│       ├── on_login()        # 登录处理
+│       ├── on_logout()       # 退出登录
+│       ├── on_start_grab()   # 开始抢票
+│       ├── on_stop_grab()    # 停止抢票
+│       └── on_grab_success() # 抢票成功回调
+│
+└── 📁 utils/               # 工具模块
+    ├── __init__.py
+    └── logger.py            # 日志管理
+        ├── info()          # 记录信息
+        ├── warning()       # 记录警告
+        ├── error()         # 记录错误
+        └── debug()         # 记录调试信息
+
+
+系统架构
+========
+
+┌─────────────────────────────────────────┐
+│          主窗口 (MainWindow)              │
+│  - 用户界面和交互                        │
+│  - 状态显示和日志输出                    │
+└───────────────┬─────────────────────────┘
+                │
+                ▼
+┌─────────────────────────────────────────┐
+│          核心层 (Core)                    │
+│  AutoGrabber - 自动抢票核心逻辑           │
+│  - 协调监控和抢票流程                    │
+│  - 管理抢票状态                         │
+│  - 处理抢票成功回调                      │
+└───────────────┬─────────────────────────┘
+                │
+                ▼
+┌─────────────────────────────────────────┐
+│          服务层 (Services)               │
+│                                         │
+│  ┌──────────────┐  ┌──────────────────┐│
+│  │ BilibiliAPI  │  │ TicketMonitor    ││
+│  │ - API请求    │  │ - 票务监控        ││
+│  │ - 抢票逻辑   │  │ - 状态更新       ││
+│  └──────────────┘  └──────────────────┘│
+│                                         │
+│  ┌──────────────┐  ┌──────────────────┐│
+│  │CookieManager │  │ Logger           ││
+│  │ - Cookie管理 │  │ - 日志记录       ││
+│  │ - 登录验证   │  │ - 文件输出       ││
+│  └──────────────┘  └──────────────────┘│
+│                                         │
+└───────────────┬─────────────────────────┘
+                │
+                ▼
+┌─────────────────────────────────────────┐
+│          配置层 (Config)                 │
+│  - 配置文件                             │
+│  - 常量定义                              │
+│  - 数据目录管理                          │
+└─────────────────────────────────────────┘
+
+
+工作流程
+========
+
+1. 启动程序
+   ↓
+2. 加载本地Cookie
+   ↓
+3. 用户登录（加载Cookie文件）
+   ↓
+4. 输入活动ID
+   ↓
+5. 点击"开始自动抢票"
+   ↓
+6. 创建AutoGrabber实例
+   ↓
+7. 启动TicketMonitor监控
+   ↓
+8. 轮询检查票务状态
+   ↓
+9. ┌──────────────────┐
+   │ 票务状态检测     │
+   └───────┬──────────┘
+           │
+     ┌─────┴─────┐
+     ▼           ▼
+  有票可售    票已售罄/未开始
+     │           │
+     ▼           ▼
+  自动抢票    继续监控
+     │
+     ▼
+  抢票成功?
+     │
+   ┌─┴─────────┐
+   ▼           ▼
+ 是            否
+ │             │
+ ▼             ▼
+ 提示用户    重试或停止
+ 支付
+
+
+依赖关系
+========
+
+main.py
+  ├── config.py
+  ├── ui/main_window.py
+  │     ├── services/bilibili_api.py
+  │     ├── services/cookie_manager.py
+  │     ├── core/auto_grabber.py
+  │     │     ├── services/bilibili_api.py
+  │     │     └── services/ticket_monitor.py
+  │     └── utils/logger.py
+  │
+  ├── get_cookie.py
+  │     ├── selenium (第三方库)
+  │     └── config.py
+  │
+  └── test_api.py
+        └── services/bilibili_api.py
+
+
+启动命令
+========
+
+1. 运行主程序:
+   python main.py
+
+2. 测试API连接:
+   python test_api.py
+
+3. 获取Cookie:
+   python get_cookie.py
+
+4. 安装依赖:
+   pip install -r requirements.txt
